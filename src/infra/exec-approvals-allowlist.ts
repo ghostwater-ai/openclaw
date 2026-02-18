@@ -14,6 +14,7 @@ import {
 import type { ExecAllowlistEntry } from "./exec-approvals.js";
 import { isTrustedSafeBinPath } from "./exec-safe-bin-trust.js";
 
+
 function isPathLikeToken(value: string): boolean {
   const trimmed = value.trim();
   if (!trimmed) {
