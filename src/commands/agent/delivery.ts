@@ -4,6 +4,7 @@ import { getChannelPlugin, normalizeChannelId } from "../../channels/plugins/ind
 import { createOutboundSendDeps, type CliDeps } from "../../cli/outbound-send-deps.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import type { SessionEntry } from "../../config/sessions.js";
+import { isThreadSessionKey } from "../../config/sessions/reset.js";
 import {
   resolveAgentDeliveryPlan,
   resolveAgentOutboundTarget,
@@ -107,7 +108,12 @@ export async function deliverAgentCommandResult(params: {
         };
   const resolvedTarget = resolved.resolvedTarget;
   const deliveryTarget = resolved.resolvedTo;
-  const resolvedThreadId = deliveryPlan.resolvedThreadId ?? opts.threadId;
+  // For non-thread sessions, never use a threadId — stale values from the
+  // session's deliveryContext would route replies to wrong Slack threads.
+  const sessionKey = opts.sessionKey ?? opts.sessionId ?? "";
+  const resolvedThreadId = isThreadSessionKey(sessionKey)
+    ? (deliveryPlan.resolvedThreadId ?? opts.threadId)
+    : undefined;
   const resolvedReplyToId =
     deliveryChannel === "slack" && resolvedThreadId != null ? String(resolvedThreadId) : undefined;
   const resolvedThreadTarget = deliveryChannel === "slack" ? undefined : resolvedThreadId;

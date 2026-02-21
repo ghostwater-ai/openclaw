@@ -8,6 +8,7 @@ import {
   resolveMainSessionKey,
   resolveStorePath,
 } from "../config/sessions.js";
+import { isThreadSessionKey } from "../config/sessions/reset.js";
 import { callGateway } from "../gateway/call.js";
 import { normalizeMainKey } from "../routing/session-key.js";
 import { defaultRuntime } from "../runtime.js";
@@ -150,7 +151,11 @@ async function sendAnnounce(item: AnnounceQueueItem) {
       channel: requesterIsSubagent ? undefined : origin?.channel,
       accountId: requesterIsSubagent ? undefined : origin?.accountId,
       to: requesterIsSubagent ? undefined : origin?.to,
-      threadId: requesterIsSubagent ? undefined : threadId,
+      threadId: requesterIsSubagent
+        ? undefined
+        : isThreadSessionKey(item.sessionKey)
+          ? threadId
+          : undefined,
       deliver: !requesterIsSubagent,
       idempotencyKey,
     },
@@ -706,7 +711,10 @@ export async function runSubagentAnnounceFlow(params: {
         accountId: requesterIsSubagent ? undefined : directOrigin?.accountId,
         to: requesterIsSubagent ? undefined : directOrigin?.to,
         threadId:
-          !requesterIsSubagent && directOrigin?.threadId != null && directOrigin.threadId !== ""
+          !requesterIsSubagent &&
+          isThreadSessionKey(targetRequesterSessionKey) &&
+          directOrigin?.threadId != null &&
+          directOrigin.threadId !== ""
             ? String(directOrigin.threadId)
             : undefined,
         idempotencyKey: directIdempotencyKey,

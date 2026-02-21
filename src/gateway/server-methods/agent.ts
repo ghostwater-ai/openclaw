@@ -10,6 +10,7 @@ import {
   type SessionEntry,
   updateSessionStore,
 } from "../../config/sessions.js";
+import { isThreadSessionKey } from "../../config/sessions/reset.js";
 import { registerAgentRunContext } from "../../infra/agent-events.js";
 import {
   resolveAgentDeliveryPlan,
@@ -527,7 +528,11 @@ export const agentHandlers: GatewayRequestHandlers = {
     });
     respond(true, accepted, undefined, { runId });
 
-    const resolvedThreadId = explicitThreadId ?? deliveryPlan.resolvedThreadId;
+    // For non-thread sessions, never use a threadId — it would be stale from a
+    // previous thread interaction stored in the session's deliveryContext.
+    const resolvedThreadId = isThreadSessionKey(resolvedSessionKey)
+      ? (explicitThreadId ?? deliveryPlan.resolvedThreadId)
+      : undefined;
 
     void agentCommand(
       {
