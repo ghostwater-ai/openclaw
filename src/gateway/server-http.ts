@@ -324,10 +324,16 @@ export function createHooksRequestHandler(
         sendJson(res, 400, { ok: false, error: sessionKey.error });
         return true;
       }
+      const targetAgentId = resolveHookTargetAgentId(hooksConfig, normalized.value.agentId);
+      const targetAgentPrefix = `agent:${targetAgentId}:`;
+      const sessionKeyValue =
+        typeof sessionKey.value === "string" && sessionKey.value.startsWith(targetAgentPrefix)
+          ? sessionKey.value.slice(targetAgentPrefix.length)
+          : sessionKey.value;
       const runId = dispatchAgentHook({
         ...normalized.value,
-        sessionKey: sessionKey.value,
-        agentId: resolveHookTargetAgentId(hooksConfig, normalized.value.agentId),
+        sessionKey: sessionKeyValue,
+        agentId: targetAgentId,
       });
       sendJson(res, 202, { ok: true, runId });
       return true;
