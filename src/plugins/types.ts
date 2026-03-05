@@ -379,6 +379,7 @@ export type PluginHookBeforePromptBuildResult = {
    * Use for static plugin guidance instead of prependContext to avoid per-turn token cost.
    */
   appendSystemContext?: string;
+  truncateBefore?: number;
 };
 
 // before_agent_start hook (legacy compatibility: combines both phases)
