@@ -161,12 +161,15 @@ function resolveNativeName(
       return override;
     }
   }
-  return (
-    getChannelPlugin(provider)?.commands?.resolveNativeCommandName?.({
-      commandKey: command.key,
-      defaultName: command.nativeName,
-    }) ?? command.nativeName
-  );
+  if (provider) {
+    return (
+      getChannelPlugin(provider)?.commands?.resolveNativeCommandName?.({
+        commandKey: command.key,
+        defaultName: command.nativeName,
+      }) ?? command.nativeName
+    );
+  }
+  return command.nativeName;
 }
 
 function toNativeCommandSpec(
@@ -212,10 +215,28 @@ export function listNativeCommandSpecsForConfig(
     nativeNames?: Record<string, string>;
   },
 ): NativeCommandSpec[] {
-  return listNativeSpecsFromCommands(
-    listChatCommandsForConfig(cfg, params),
-    params?.provider,
-    params?.nativeNames,
+  const commands = listChatCommandsForConfig(cfg, params).filter(
+    (command) => command.scope !== "text" && command.nativeName,
+  );
+  const resolvedByName = new Map<string, string>();
+
+  for (const command of commands) {
+    const resolved = resolveNativeName(command, params?.provider, params?.nativeNames);
+    if (!resolved) {
+      continue;
+    }
+    const normalized = resolved.toLowerCase();
+    const existingCommandKey = resolvedByName.get(normalized);
+    if (existingCommandKey && existingCommandKey !== command.key) {
+      throw new Error(
+        `Duplicate native command name '${resolved}' resolved for '${command.key}' and '${existingCommandKey}'`,
+      );
+    }
+    resolvedByName.set(normalized, command.key);
+  }
+
+  return commands.map((command) =>
+    toNativeCommandSpec(command, params?.provider, params?.nativeNames),
   );
 }
 
