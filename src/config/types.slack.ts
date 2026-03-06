@@ -64,6 +64,8 @@ export type SlackSlashCommandConfig = {
   enabled?: boolean;
   /** Slash command name (default: "openclaw"). */
   name?: string;
+  /** Optional per-account prefix for native slash commands (e.g. "acct-help"). */
+  nativePrefix?: string;
   /** Session key prefix for slash commands (default: "slack:slash"). */
   sessionPrefix?: string;
   /** Reply ephemerally (default: true). */

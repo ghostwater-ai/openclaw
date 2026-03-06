@@ -143,9 +143,26 @@ function resolveNativeName(command: ChatCommandDefinition, provider?: string): s
   return command.nativeName;
 }
 
-function toNativeCommandSpec(command: ChatCommandDefinition, provider?: string): NativeCommandSpec {
+function normalizeNativePrefix(nativePrefix?: string): string | undefined {
+  const trimmed = nativePrefix?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  return trimmed.replace(/^-+|-+$/g, "");
+}
+
+function withNativePrefix(name: string, nativePrefix?: string): string {
+  const prefix = normalizeNativePrefix(nativePrefix);
+  return prefix ? `${prefix}-${name}` : name;
+}
+
+function toNativeCommandSpec(
+  command: ChatCommandDefinition,
+  provider?: string,
+  nativePrefix?: string,
+): NativeCommandSpec {
   return {
-    name: resolveNativeName(command, provider) ?? command.key,
+    name: withNativePrefix(resolveNativeName(command, provider) ?? command.key, nativePrefix),
     description: command.description,
     acceptsArgs: Boolean(command.acceptsArgs),
     args: command.args,
@@ -155,39 +172,77 @@ function toNativeCommandSpec(command: ChatCommandDefinition, provider?: string):
 function listNativeSpecsFromCommands(
   commands: ChatCommandDefinition[],
   provider?: string,
+  nativePrefix?: string,
 ): NativeCommandSpec[] {
   return commands
     .filter((command) => command.scope !== "text" && command.nativeName)
-    .map((command) => toNativeCommandSpec(command, provider));
+    .map((command) => toNativeCommandSpec(command, provider, nativePrefix));
 }
 
 export function listNativeCommandSpecs(params?: {
   skillCommands?: SkillCommandSpec[];
   provider?: string;
+  nativePrefix?: string;
 }): NativeCommandSpec[] {
   return listNativeSpecsFromCommands(
     listChatCommands({ skillCommands: params?.skillCommands }),
     params?.provider,
+    params?.nativePrefix,
   );
 }
 
 export function listNativeCommandSpecsForConfig(
   cfg: OpenClawConfig,
-  params?: { skillCommands?: SkillCommandSpec[]; provider?: string },
+  params?: { skillCommands?: SkillCommandSpec[]; provider?: string; nativePrefix?: string },
 ): NativeCommandSpec[] {
-  return listNativeSpecsFromCommands(listChatCommandsForConfig(cfg, params), params?.provider);
+  return listNativeSpecsFromCommands(
+    listChatCommandsForConfig(cfg, params),
+    params?.provider,
+    params?.nativePrefix,
+  );
+}
+
+function stripNativePrefixCandidate(name: string, nativePrefix?: string): string | undefined {
+  const prefix = normalizeNativePrefix(nativePrefix)?.toLowerCase();
+  if (!prefix) {
+    return undefined;
+  }
+  const token = `${prefix}-`;
+  if (!name.startsWith(token)) {
+    return undefined;
+  }
+  const stripped = name.slice(token.length).trim();
+  return stripped || undefined;
 }
 
 export function findCommandByNativeName(
   name: string,
   provider?: string,
+  params?: { nativePrefix?: string; nativePrefixes?: string[] },
 ): ChatCommandDefinition | undefined {
   const normalized = name.trim().toLowerCase();
-  return getChatCommands().find(
-    (command) =>
-      command.scope !== "text" &&
-      resolveNativeName(command, provider)?.toLowerCase() === normalized,
-  );
+  const candidates = new Set<string>([normalized]);
+  const configuredPrefixes = [params?.nativePrefix, ...(params?.nativePrefixes ?? [])];
+  for (const prefix of configuredPrefixes) {
+    const stripped = stripNativePrefixCandidate(normalized, prefix);
+    if (stripped) {
+      candidates.add(stripped);
+    }
+  }
+  // Slack native commands can be account-prefixed. If account context is not available,
+  // fall back to stripping one leading "<prefix>-" segment and retrying.
+  const dynamicDashIndex = normalized.indexOf("-");
+  if (provider === "slack" && dynamicDashIndex > 0 && dynamicDashIndex < normalized.length - 1) {
+    candidates.add(normalized.slice(dynamicDashIndex + 1));
+  }
+
+  return getChatCommands().find((command) => {
+    if (command.scope === "text") {
+      return false;
+    }
+    const resolved = resolveNativeName(command, provider)?.toLowerCase();
+    return Boolean(resolved && candidates.has(resolved));
+  });
 }
 
 export function buildCommandText(commandName: string, args?: string): string {
