@@ -494,7 +494,11 @@ export async function registerSlackMonitorSlashCommands(params: {
           cfg,
         });
         if (menu) {
-          const commandLabel = commandDefinition.nativeName ?? commandDefinition.key;
+          const mappedNativeName = nativeNames?.[commandDefinition.key]?.trim();
+          const commandLabel =
+            mappedNativeName && mappedNativeName.length > 0
+              ? mappedNativeName
+              : (commandDefinition.nativeName ?? commandDefinition.key);
           const title =
             menu.title ?? `Choose ${menu.arg.description || menu.arg.name} for /${commandLabel}.`;
           const blocks = buildSlackCommandArgMenuBlocks({
