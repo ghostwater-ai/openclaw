@@ -842,7 +842,6 @@ export const SlackAccountSchema = z
       .object({
         enabled: z.boolean().optional(),
         name: z.string().optional(),
-        nativePrefix: z.string().optional(),
         nativeNames: z.record(z.string(), z.string()).optional(),
         sessionPrefix: z.string().optional(),
         ephemeral: z.boolean().optional(),

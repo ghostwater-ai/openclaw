@@ -151,36 +151,13 @@ function resolveNativeName(
   return command.nativeName;
 }
 
-function normalizeNativePrefix(nativePrefix?: string): string | undefined {
-  const trimmed = nativePrefix?.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-  const normalized = trimmed.toLowerCase();
-  // Native slash command prefix is a single segment prepended as "<prefix>-<command>".
-  // Restrict to lowercase alphanumeric to avoid ambiguous multi-segment matching.
-  if (!/^[a-z0-9]+$/.test(normalized)) {
-    return undefined;
-  }
-  return normalized;
-}
-
-function withNativePrefix(name: string, nativePrefix?: string): string {
-  const prefix = normalizeNativePrefix(nativePrefix);
-  return prefix ? `${prefix}-${name}` : name;
-}
-
 function toNativeCommandSpec(
   command: ChatCommandDefinition,
   provider?: string,
-  nativePrefix?: string,
   nativeNames?: Record<string, string>,
 ): NativeCommandSpec {
   return {
-    name: withNativePrefix(
-      resolveNativeName(command, provider, nativeNames) ?? command.key,
-      nativePrefix,
-    ),
+    name: resolveNativeName(command, provider, nativeNames) ?? command.key,
     description: command.description,
     acceptsArgs: Boolean(command.acceptsArgs),
     args: command.args,
@@ -190,24 +167,21 @@ function toNativeCommandSpec(
 function listNativeSpecsFromCommands(
   commands: ChatCommandDefinition[],
   provider?: string,
-  nativePrefix?: string,
   nativeNames?: Record<string, string>,
 ): NativeCommandSpec[] {
   return commands
     .filter((command) => command.scope !== "text" && command.nativeName)
-    .map((command) => toNativeCommandSpec(command, provider, nativePrefix, nativeNames));
+    .map((command) => toNativeCommandSpec(command, provider, nativeNames));
 }
 
 export function listNativeCommandSpecs(params?: {
   skillCommands?: SkillCommandSpec[];
   provider?: string;
-  nativePrefix?: string;
   nativeNames?: Record<string, string>;
 }): NativeCommandSpec[] {
   return listNativeSpecsFromCommands(
     listChatCommands({ skillCommands: params?.skillCommands }),
     params?.provider,
-    params?.nativePrefix,
     params?.nativeNames,
   );
 }
@@ -217,62 +191,31 @@ export function listNativeCommandSpecsForConfig(
   params?: {
     skillCommands?: SkillCommandSpec[];
     provider?: string;
-    nativePrefix?: string;
     nativeNames?: Record<string, string>;
   },
 ): NativeCommandSpec[] {
   return listNativeSpecsFromCommands(
     listChatCommandsForConfig(cfg, params),
     params?.provider,
-    params?.nativePrefix,
     params?.nativeNames,
   );
-}
-
-function stripNativePrefixCandidate(name: string, nativePrefix?: string): string | undefined {
-  const prefix = normalizeNativePrefix(nativePrefix)?.toLowerCase();
-  if (!prefix) {
-    return undefined;
-  }
-  const token = `${prefix}-`;
-  if (!name.startsWith(token)) {
-    return undefined;
-  }
-  const stripped = name.slice(token.length).trim();
-  return stripped || undefined;
 }
 
 export function findCommandByNativeName(
   name: string,
   provider?: string,
   params?: {
-    nativePrefix?: string;
-    nativePrefixes?: string[];
     nativeNames?: Record<string, string>;
   },
 ): ChatCommandDefinition | undefined {
   const normalized = name.trim().toLowerCase();
-  const candidates = new Set<string>([normalized]);
-  const configuredPrefixes = [params?.nativePrefix, ...(params?.nativePrefixes ?? [])];
-  for (const prefix of configuredPrefixes) {
-    const stripped = stripNativePrefixCandidate(normalized, prefix);
-    if (stripped) {
-      candidates.add(stripped);
-    }
-  }
-  // Slack native commands can be account-prefixed. If account context is not available,
-  // fall back to stripping one leading "<prefix>-" segment and retrying.
-  const dynamicDashIndex = normalized.indexOf("-");
-  if (provider === "slack" && dynamicDashIndex > 0 && dynamicDashIndex < normalized.length - 1) {
-    candidates.add(normalized.slice(dynamicDashIndex + 1));
-  }
 
   return getChatCommands().find((command) => {
     if (command.scope === "text") {
       return false;
     }
     const resolved = resolveNativeName(command, provider, params?.nativeNames)?.toLowerCase();
-    return Boolean(resolved && candidates.has(resolved));
+    return Boolean(resolved && resolved === normalized);
   });
 }
 

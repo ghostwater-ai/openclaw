@@ -37,29 +37,6 @@ vi.mock("../../auto-reply/commands-registry.js", () => {
     return { arg: periodArg, choices };
   };
 
-  const normalizePrefix = (prefix?: string) => {
-    const trimmed = prefix?.trim();
-    if (!trimmed) {
-      return undefined;
-    }
-    return trimmed.replace(/^-+|-+$/g, "").toLowerCase() || undefined;
-  };
-  const withPrefix = (name: string, prefix?: string) => {
-    const normalizedPrefix = normalizePrefix(prefix);
-    return normalizedPrefix ? `${normalizedPrefix}-${name}` : name;
-  };
-  const stripPrefix = (name: string, prefix?: string) => {
-    const normalizedPrefix = normalizePrefix(prefix);
-    if (!normalizedPrefix) {
-      return name;
-    }
-    const token = `${normalizedPrefix}-`;
-    if (!name.startsWith(token)) {
-      return name;
-    }
-    return name.slice(token.length) || name;
-  };
-
   return {
     buildCommandTextFromArgs: (
       cmd: { nativeName?: string; key: string },
@@ -80,9 +57,9 @@ vi.mock("../../auto-reply/commands-registry.js", () => {
     findCommandByNativeName: (
       name: string,
       _provider?: string,
-      params?: { nativePrefix?: string; nativeNames?: Record<string, string> },
+      params?: { nativeNames?: Record<string, string> },
     ) => {
-      const normalized = stripPrefix(name.trim().toLowerCase(), params?.nativePrefix);
+      const normalized = name.trim().toLowerCase();
       const reverseNativeNames = new Map<string, string>();
       for (const [key, mapped] of Object.entries(params?.nativeNames ?? {})) {
         const trimmed = mapped.trim().toLowerCase();
@@ -116,55 +93,46 @@ vi.mock("../../auto-reply/commands-registry.js", () => {
     },
     listNativeCommandSpecsForConfig: (
       _cfg?: unknown,
-      params?: { nativePrefix?: string; nativeNames?: Record<string, string> },
+      params?: { nativeNames?: Record<string, string> },
     ) => [
       {
-        name: withPrefix(params?.nativeNames?.usage ?? "usage", params?.nativePrefix),
+        name: params?.nativeNames?.usage ?? "usage",
         description: "Usage",
         acceptsArgs: true,
         args: [],
       },
       {
-        name: withPrefix(params?.nativeNames?.report ?? "report", params?.nativePrefix),
+        name: params?.nativeNames?.report ?? "report",
         description: "Report",
         acceptsArgs: true,
         args: [],
       },
       {
-        name: withPrefix(
-          params?.nativeNames?.reportcompact ?? "reportcompact",
-          params?.nativePrefix,
-        ),
+        name: params?.nativeNames?.reportcompact ?? "reportcompact",
         description: "ReportCompact",
         acceptsArgs: true,
         args: [],
       },
       {
-        name: withPrefix(
-          params?.nativeNames?.reportexternal ?? "reportexternal",
-          params?.nativePrefix,
-        ),
+        name: params?.nativeNames?.reportexternal ?? "reportexternal",
         description: "ReportExternal",
         acceptsArgs: true,
         args: [],
       },
       {
-        name: withPrefix(params?.nativeNames?.reportlong ?? "reportlong", params?.nativePrefix),
+        name: params?.nativeNames?.reportlong ?? "reportlong",
         description: "ReportLong",
         acceptsArgs: true,
         args: [],
       },
       {
-        name: withPrefix(
-          params?.nativeNames?.unsafeconfirm ?? "unsafeconfirm",
-          params?.nativePrefix,
-        ),
+        name: params?.nativeNames?.unsafeconfirm ?? "unsafeconfirm",
         description: "UnsafeConfirm",
         acceptsArgs: true,
         args: [],
       },
       {
-        name: withPrefix(params?.nativeNames?.status ?? "agentstatus", params?.nativePrefix),
+        name: params?.nativeNames?.status ?? "agentstatus",
         description: "Status",
         acceptsArgs: false,
         args: [],
@@ -270,8 +238,6 @@ function createDeferred<T>() {
 }
 
 function createArgMenusHarness(overrides?: {
-  nativePrefix?: string;
-  accountNativePrefix?: string;
   nativeNames?: Record<string, string>;
   accountNativeNames?: Record<string, string>;
 }) {
@@ -315,7 +281,6 @@ function createArgMenusHarness(overrides?: {
       name: "openclaw",
       ephemeral: true,
       sessionPrefix: "slack:slash",
-      nativePrefix: overrides?.nativePrefix,
       nativeNames: overrides?.nativeNames,
     },
     textLimit: 4000,
@@ -330,10 +295,9 @@ function createArgMenusHarness(overrides?: {
     config: {
       commands: { native: true, nativeSkills: false },
       slashCommand:
-        overrides?.accountNativePrefix === undefined && overrides?.accountNativeNames === undefined
+        overrides?.accountNativeNames === undefined
           ? undefined
           : {
-              nativePrefix: overrides.accountNativePrefix,
               nativeNames: overrides.accountNativeNames,
             },
     },
