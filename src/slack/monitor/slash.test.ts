@@ -756,15 +756,19 @@ describe("Slack native command name mapping wiring", () => {
     expect(harness.commands.has("/ozusage")).toBe(true);
     expect(harness.commands.has("/agentstatus")).toBe(true);
 
+    const mappedUsageHandler = requireHandler(harness.commands, "/ozusage", "/ozusage");
     const argMenuHandler = requireHandler(harness.actions, "openclaw_cmdarg", "arg-menu action");
+    const { payload } = await runCommandAndResolveActionsBlock(mappedUsageHandler);
+    const actionValue = (
+      findFirstActionsBlock(payload as { blocks?: Array<{ type: string }> })?.elements?.[0] as
+        | { value?: string }
+        | undefined
+    )?.value;
+    expect(actionValue).toBeTruthy();
+
     await runArgMenuAction(argMenuHandler, {
       action: {
-        value: encodeValue({
-          command: "ozusage",
-          arg: "mode",
-          value: "tokens",
-          userId: "U1",
-        }),
+        value: actionValue,
       },
     });
     expectSingleDispatchedSlashBody("/usage tokens");
