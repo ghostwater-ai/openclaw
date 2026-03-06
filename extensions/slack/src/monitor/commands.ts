@@ -3,9 +3,10 @@ import { normalizeOptionalString } from "openclaw/plugin-sdk/text-runtime";
 
 export type ResolvedSlackSlashCommandConfig = Omit<
   Required<SlackSlashCommandConfig>,
-  "nativePrefix"
+  "nativePrefix" | "nativeNames"
 > & {
   nativePrefix?: string;
+  nativeNames?: Record<string, string>;
 };
 
 /**
@@ -35,6 +36,7 @@ export function resolveSlackSlashCommandConfig(
     enabled: raw?.enabled === true,
     name,
     nativePrefix: nativePrefix || undefined,
+    nativeNames: raw?.nativeNames,
     sessionPrefix: normalizeOptionalString(raw?.sessionPrefix) ?? "slack:slash",
     ephemeral: raw?.ephemeral !== false,
   };

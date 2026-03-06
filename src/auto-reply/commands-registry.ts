@@ -54,12 +54,112 @@ export type {
   ShouldHandleTextCommandsParams,
 } from "./commands-registry.types.js";
 
-function resolveNativeName(command: ChatCommandDefinition, provider?: string): string | undefined {
+type TextAliasSpec = {
+  key: string;
+  canonical: string;
+  acceptsArgs: boolean;
+};
+
+let cachedTextAliasMap: Map<string, TextAliasSpec> | null = null;
+let cachedTextAliasCommands: ChatCommandDefinition[] | null = null;
+let cachedDetection: CommandDetection | undefined;
+let cachedDetectionCommands: ChatCommandDefinition[] | null = null;
+
+function getTextAliasMap(): Map<string, TextAliasSpec> {
+  const commands = getChatCommands();
+  if (cachedTextAliasMap && cachedTextAliasCommands === commands) {
+    return cachedTextAliasMap;
+  }
+  const map = new Map<string, TextAliasSpec>();
+  for (const command of commands) {
+    const canonical = command.textAliases[0]?.trim() || `/${command.key}`;
+    const acceptsArgs = Boolean(command.acceptsArgs);
+    for (const alias of command.textAliases) {
+      const normalized = normalizeOptionalLowercaseString(alias);
+      if (!normalized) {
+        continue;
+      }
+      if (!map.has(normalized)) {
+        map.set(normalized, { key: command.key, canonical, acceptsArgs });
+      }
+    }
+  }
+  cachedTextAliasMap = map;
+  cachedTextAliasCommands = commands;
+  return map;
+}
+
+function buildSkillCommandDefinitions(skillCommands?: SkillCommandSpec[]): ChatCommandDefinition[] {
+  if (!skillCommands || skillCommands.length === 0) {
+    return [];
+  }
+  return skillCommands.map((spec) => ({
+    key: `skill:${spec.skillName}`,
+    nativeName: spec.name,
+    description: spec.description,
+    textAliases: [`/${spec.name}`],
+    acceptsArgs: true,
+    argsParsing: "none",
+    scope: "both",
+  }));
+}
+
+export function listChatCommands(params?: {
+  skillCommands?: SkillCommandSpec[];
+}): ChatCommandDefinition[] {
+  const commands = getChatCommands();
+  if (!params?.skillCommands?.length) {
+    return [...commands];
+  }
+  return [...commands, ...buildSkillCommandDefinitions(params.skillCommands)];
+}
+
+export function isCommandEnabled(cfg: OpenClawConfig, commandKey: string): boolean {
+  if (commandKey === "config") return isCommandFlagEnabled(cfg, "config");
+  if (commandKey === "mcp") return isCommandFlagEnabled(cfg, "mcp");
+  if (commandKey === "plugins") return isCommandFlagEnabled(cfg, "plugins");
+  if (commandKey === "debug") return isCommandFlagEnabled(cfg, "debug");
+  if (commandKey === "bash") return isCommandFlagEnabled(cfg, "bash");
+  return true;
+}
+
+export function listChatCommandsForConfig(
+  cfg: OpenClawConfig,
+  params?: { skillCommands?: SkillCommandSpec[] },
+): ChatCommandDefinition[] {
+  const base = getChatCommands().filter((command) => isCommandEnabled(cfg, command.key));
+  if (!params?.skillCommands?.length) {
+    return base;
+  }
+  return [...base, ...buildSkillCommandDefinitions(params.skillCommands)];
+}
+
+const NATIVE_NAME_OVERRIDES: Record<string, Record<string, string>> = {
+  discord: {
+    tts: "voice",
+  },
+  slack: {
+    status: "agentstatus",
+  },
+};
+
+function resolveNativeName(
+  command: ChatCommandDefinition,
+  provider?: string,
+  nativeNames?: Record<string, string>,
+): string | undefined {
   if (!command.nativeName) {
     return undefined;
   }
-  if (!provider) {
-    return command.nativeName;
+  const mapped = nativeNames?.[command.key]?.trim();
+  if (mapped) {
+    return mapped;
+  }
+  if (provider) {
+    const override = NATIVE_NAME_OVERRIDES[provider]?.[command.key];
+    if (override) {
+      return override;
+    }
   }
   return (
     getChannelPlugin(provider)?.commands?.resolveNativeCommandName?.({
@@ -92,9 +192,13 @@ function toNativeCommandSpec(
   command: ChatCommandDefinition,
   provider?: string,
   nativePrefix?: string,
+  nativeNames?: Record<string, string>,
 ): NativeCommandSpec {
   return {
-    name: withNativePrefix(resolveNativeName(command, provider) ?? command.key, nativePrefix),
+    name: withNativePrefix(
+      resolveNativeName(command, provider, nativeNames) ?? command.key,
+      nativePrefix,
+    ),
     description: command.description,
     acceptsArgs: Boolean(command.acceptsArgs),
     args: command.args,
@@ -105,32 +209,41 @@ function listNativeSpecsFromCommands(
   commands: ChatCommandDefinition[],
   provider?: string,
   nativePrefix?: string,
+  nativeNames?: Record<string, string>,
 ): NativeCommandSpec[] {
   return commands
     .filter((command) => command.scope !== "text" && command.nativeName)
-    .map((command) => toNativeCommandSpec(command, provider, nativePrefix));
+    .map((command) => toNativeCommandSpec(command, provider, nativePrefix, nativeNames));
 }
 
 export function listNativeCommandSpecs(params?: {
   skillCommands?: SkillCommandSpec[];
   provider?: string;
   nativePrefix?: string;
+  nativeNames?: Record<string, string>;
 }): NativeCommandSpec[] {
   return listNativeSpecsFromCommands(
     listChatCommands({ skillCommands: params?.skillCommands }),
     params?.provider,
     params?.nativePrefix,
+    params?.nativeNames,
   );
 }
 
 export function listNativeCommandSpecsForConfig(
   cfg: OpenClawConfig,
-  params?: { skillCommands?: SkillCommandSpec[]; provider?: string; nativePrefix?: string },
+  params?: {
+    skillCommands?: SkillCommandSpec[];
+    provider?: string;
+    nativePrefix?: string;
+    nativeNames?: Record<string, string>;
+  },
 ): NativeCommandSpec[] {
   return listNativeSpecsFromCommands(
     listChatCommandsForConfig(cfg, params),
     params?.provider,
     params?.nativePrefix,
+    params?.nativeNames,
   );
 }
 
@@ -150,7 +263,11 @@ function stripNativePrefixCandidate(name: string, nativePrefix?: string): string
 export function findCommandByNativeName(
   name: string,
   provider?: string,
-  params?: { nativePrefix?: string; nativePrefixes?: string[] },
+  params?: {
+    nativePrefix?: string;
+    nativePrefixes?: string[];
+    nativeNames?: Record<string, string>;
+  },
 ): ChatCommandDefinition | undefined {
   const normalized = normalizeOptionalLowercaseString(name);
   if (!normalized) {
@@ -176,7 +293,9 @@ export function findCommandByNativeName(
     if (command.scope === "text") {
       return false;
     }
-    const resolved = normalizeOptionalLowercaseString(resolveNativeName(command, provider));
+    const resolved = normalizeOptionalLowercaseString(
+      resolveNativeName(command, provider, params?.nativeNames),
+    );
     return Boolean(resolved && candidates.has(resolved));
   });
 }
