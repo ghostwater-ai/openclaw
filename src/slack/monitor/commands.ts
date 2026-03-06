@@ -2,9 +2,8 @@ import type { SlackSlashCommandConfig } from "../../config/config.js";
 
 export type ResolvedSlackSlashCommandConfig = Omit<
   Required<SlackSlashCommandConfig>,
-  "nativePrefix" | "nativeNames"
+  "nativeNames"
 > & {
-  nativePrefix?: string;
   nativeNames?: Record<string, string>;
 };
 
@@ -28,11 +27,9 @@ export function resolveSlackSlashCommandConfig(
 ): ResolvedSlackSlashCommandConfig {
   const normalizedName = normalizeSlackSlashCommandName(raw?.name?.trim() || "openclaw");
   const name = normalizedName || "openclaw";
-  const nativePrefix = raw?.nativePrefix?.trim();
   return {
     enabled: raw?.enabled === true,
     name,
-    nativePrefix: nativePrefix || undefined,
     nativeNames: raw?.nativeNames,
     sessionPrefix: raw?.sessionPrefix?.trim() || "slack:slash",
     ephemeral: raw?.ephemeral !== false,
