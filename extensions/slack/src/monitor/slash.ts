@@ -670,6 +670,7 @@ export async function registerSlackMonitorSlashCommands(params: {
     nativeCommands = slashCommandsRuntime.listNativeCommandSpecsForConfig(cfg, {
       skillCommands,
       provider: "slack",
+      nativePrefix: slashCommand.nativePrefix,
     });
     const existingNativeNames = new Set(
       nativeCommands.map((c) => normalizeLowercaseStringOrEmpty(c.name)).filter(Boolean),
@@ -695,6 +696,7 @@ export async function registerSlackMonitorSlashCommands(params: {
           const commandDefinition = slashCommandsRuntime.findCommandByNativeName(
             command.name,
             "slack",
+            { nativePrefix: slashCommand.nativePrefix },
           );
           const rawText = cmd.text?.trim() ?? "";
           const commandArgs = commandDefinition
@@ -849,7 +851,9 @@ export async function registerSlackMonitorSlashCommands(params: {
       }
       const { buildCommandTextFromArgs, findCommandByNativeName } =
         await loadSlashCommandsRuntime();
-      const commandDefinition = findCommandByNativeName(parsed.command, "slack");
+      const commandDefinition = findCommandByNativeName(parsed.command, "slack", {
+        nativePrefix: slashCommand.nativePrefix,
+      });
       const commandArgs: CommandArgs = {
         values: { [parsed.arg]: parsed.value },
       };

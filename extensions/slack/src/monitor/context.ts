@@ -21,6 +21,7 @@ import { normalizeAllowList, normalizeAllowListLower, normalizeSlackSlug } from 
 import type { SlackChannelConfigEntries } from "./channel-config.js";
 import { resolveSlackChannelConfig } from "./channel-config.js";
 import { normalizeSlackChannelType } from "./channel-type.js";
+import type { ResolvedSlackSlashCommandConfig } from "./commands.js";
 import { resolveSessionKey } from "./config.runtime.js";
 import { isSlackChannelAllowedByPolicy } from "./policy.js";
 
@@ -59,7 +60,7 @@ export type SlackMonitorContext = {
   threadHistoryScope: "thread" | "channel";
   threadInheritParent: boolean;
   threadRequireExplicitMention: boolean;
-  slashCommand: Required<import("openclaw/plugin-sdk/config-runtime").SlackSlashCommandConfig>;
+  slashCommand: ResolvedSlackSlashCommandConfig;
   textLimit: number;
   ackReactionScope: string;
   typingReaction: string;

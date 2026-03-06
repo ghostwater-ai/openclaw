@@ -1,6 +1,13 @@
 import type { SlackSlashCommandConfig } from "openclaw/plugin-sdk/config-runtime";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/text-runtime";
 
+export type ResolvedSlackSlashCommandConfig = Omit<
+  Required<SlackSlashCommandConfig>,
+  "nativePrefix"
+> & {
+  nativePrefix?: string;
+};
+
 /**
  * Strip Slack mentions (<@U123>, <@U123|name>) so command detection works on
  * normalized text. Use in both prepare and debounce gate for consistency.
@@ -18,14 +25,16 @@ export function normalizeSlackSlashCommandName(raw: string) {
 
 export function resolveSlackSlashCommandConfig(
   raw?: SlackSlashCommandConfig,
-): Required<SlackSlashCommandConfig> {
+): ResolvedSlackSlashCommandConfig {
   const normalizedName = normalizeSlackSlashCommandName(
     normalizeOptionalString(raw?.name) ?? "openclaw",
   );
   const name = normalizedName || "openclaw";
+  const nativePrefix = normalizeOptionalString(raw?.nativePrefix);
   return {
     enabled: raw?.enabled === true,
     name,
+    nativePrefix: nativePrefix || undefined,
     sessionPrefix: normalizeOptionalString(raw?.sessionPrefix) ?? "slack:slash",
     ephemeral: raw?.ephemeral !== false,
   };
