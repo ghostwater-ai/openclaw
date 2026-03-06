@@ -121,6 +121,27 @@ describe("commands registry", () => {
     expect(findCommandByNativeName("status", "slack")).toBeUndefined();
   });
 
+  it("prefixes slack native command specs when nativePrefix is set", () => {
+    const native = listNativeCommandSpecsForConfig(
+      { commands: { native: true } },
+      { provider: "slack", nativePrefix: "acct1" },
+    );
+    expect(native.find((spec) => spec.name === "acct1-help")).toBeTruthy();
+    expect(native.find((spec) => spec.name === "acct1-agentstatus")).toBeTruthy();
+    expect(native.find((spec) => spec.name === "help")).toBeFalsy();
+    expect(native.find((spec) => spec.name === "agentstatus")).toBeFalsy();
+  });
+
+  it("finds slack commands by prefixed native names", () => {
+    expect(
+      findCommandByNativeName("acct1-agentstatus", "slack", { nativePrefix: "acct1" })?.key,
+    ).toBe("status");
+    expect(findCommandByNativeName("acct1-agentstatus", "slack")?.key).toBe("status");
+    expect(findCommandByNativeName("agentstatus", "slack", { nativePrefix: "acct1" })?.key).toBe(
+      "status",
+    );
+  });
+
   it("keeps discord native command specs within slash-command limits", () => {
     const cfg = { commands: { native: true } };
     const native = listNativeCommandSpecsForConfig(cfg, { provider: "discord" });
