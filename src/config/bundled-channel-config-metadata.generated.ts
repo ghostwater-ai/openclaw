@@ -10970,6 +10970,16 @@ export const GENERATED_BUNDLED_CHANNEL_CONFIG_METADATA = [
             name: {
               type: "string",
             },
+            nativeNames: {
+              type: "object",
+              propertyNames: {
+                type: "string",
+              },
+              additionalProperties: {
+                type: "string",
+                pattern: "^[a-z0-9-]+$",
+              },
+            },
             sessionPrefix: {
               type: "string",
             },
@@ -11878,6 +11888,16 @@ export const GENERATED_BUNDLED_CHANNEL_CONFIG_METADATA = [
                   },
                   name: {
                     type: "string",
+                  },
+                  nativeNames: {
+                    type: "object",
+                    propertyNames: {
+                      type: "string",
+                    },
+                    additionalProperties: {
+                      type: "string",
+                      pattern: "^[a-z0-9-]+$",
+                    },
                   },
                   sessionPrefix: {
                     type: "string",
